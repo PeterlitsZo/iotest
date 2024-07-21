@@ -45,6 +45,7 @@ impl<C> Tester<C> where C: TestClient {
         self.test_try().await;
 
         // Test.
+        self.test_qps(5).await;
         self.test_qps(10).await;
         self.test_qps(20).await;
         self.test_qps(50).await;
@@ -154,13 +155,15 @@ impl<C> Tester<C> where C: TestClient {
 }
 
 const BUCKETS: &[f64] = &[
-    32., 32. * SQRT_2,
+    16., 16. * SQRT_2, 32., 32. * SQRT_2,
     64., 64. * SQRT_2, 128., 128. * SQRT_2,
     256., 256. * SQRT_2, 512., 512. * SQRT_2,
     1024., 1024. * SQRT_2, 2048., 2048. * SQRT_2,
     4096., 4096. * SQRT_2, 8192., 8192. * SQRT_2,
     16384., 16384. * SQRT_2, 32768., 32768. * SQRT_2,
     65536., 65536. * SQRT_2, 131072., 131072. * SQRT_2,
+    262144., 262144. * SQRT_2, 524288., 524288. * SQRT_2,
+    1048576.,
 ];
 const BUCKETS_LEN: usize = BUCKETS.len();
 
@@ -200,7 +203,7 @@ fn show_historgram(name: &str, histogram: &Histogram) {
     // Print in CLI.
     println!("    {}", "-".repeat(10 + 1 + 100 + 1 + 10));
     let mut before = 0;
-    for bar in histogram.buckets().clone().into_iter().step_by(2) {
+    for bar in histogram.buckets().clone().into_iter().step_by(4) {
         let dots_num = (((bar.1 - before) * 100 + sum - 1) / sum) as usize;
         let spaces_num = 100 - dots_num;
         println!("    {:10} {}{} {}",
@@ -235,7 +238,7 @@ fn show_historgram(name: &str, histogram: &Histogram) {
         .disable_x_mesh()
         .y_desc("precent")
         .x_desc("bucket")
-        .x_labels(32)
+        .x_labels(BUCKETS_LEN)
         .x_label_formatter(&|v: &SegmentValue<i32>| {
             match *v {
                 SegmentValue::CenterOf(v) => {
