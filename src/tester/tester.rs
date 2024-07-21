@@ -3,6 +3,7 @@ use std::{cmp::max, f64::consts::SQRT_2, fmt::{format, Write}, fs::create_dir_al
 use indicatif::{ProgressBar, ProgressState, ProgressStyle};
 use metrics_util::Histogram;
 use plotters::{backend::BitMapBackend, chart::ChartBuilder, drawing::IntoDrawingArea, prelude::{IntoSegmentedCoord, SegmentValue}, series, style::{text_anchor::{HPos, Pos, VPos}, Color, IntoFont, TextStyle, RED, WHITE}};
+use rand::{distributions::Alphanumeric, Rng};
 use tokio::{sync::Mutex, time::{self, sleep, Duration}};
 
 use super::client::{TestClient, TestClientHandler};
@@ -11,6 +12,7 @@ use super::client::{TestClient, TestClientHandler};
 /// something from storage.
 pub struct Tester<C> where C: TestClient {
     client: Arc<Mutex<C>>,
+    random_string: Arc<String>,
 }
 
 struct TestResult {
@@ -20,9 +22,16 @@ struct TestResult {
 }
 
 impl<C> Tester<C> where C: TestClient {
-    pub fn new(client: C) -> Self {
+    pub fn new(client: C, len: usize) -> Self {
         Self {
             client: Arc::new(Mutex::new(client)),
+            random_string: Arc::new(
+                rand::thread_rng()
+                    .sample_iter(&Alphanumeric)
+                    .take(len)
+                    .map(char::from)
+                    .collect()
+            ),
         }
     }
 
@@ -92,17 +101,18 @@ impl<C> Tester<C> where C: TestClient {
 
             // Query.
             let key = client.gen_unique_key();
+            let random_string = self.random_string.clone();
             let handler = tokio::spawn(async move {
                 let hdlr = C::handler();
 
                 let write_start = time::Instant::now();
-                hdlr.write(&key, &String::from("Hello World")).await.unwrap();
+                hdlr.write(&key, &random_string).await.unwrap();
                 let write_end = time::Instant::now();
 
                 let read_start = time::Instant::now();
                 let value = hdlr.read(&key).await.unwrap();
                 let read_end = time::Instant::now();
-                assert!(value == "Hello World");
+                assert!(value == *random_string);
 
                 let delete_start = time::Instant::now();
                 hdlr.delete(&key).await.unwrap();
@@ -140,9 +150,6 @@ impl<C> Tester<C> where C: TestClient {
         show_historgram(&format!("read-qps-{}", qps), &read_histogram);
         println!("  DELETE HISTOGRAM:");
         show_historgram(&format!("delete-qps-{}", qps), &delete_histogram);
-
-        // Done.
-        println!("DONE");
     }
 }
 
