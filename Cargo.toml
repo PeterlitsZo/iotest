@@ -1,0 +1,10 @@
+[package]
+name = "iotest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+indicatif = "0.17.8"
+metrics-util = "0.17.0"
+plotters = { git = "https://github.com/plotters-rs/plotters", rev = "7024adc" }
+tokio = { version = "1.38.1", features = ["full"] } 
